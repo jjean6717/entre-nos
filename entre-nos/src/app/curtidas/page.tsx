@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function Page(){return <main className="center"><div className="card"><h1>Curtidas</h1><p>Suas curtidas e novos matches aparecerão aqui.</p><nav className="appnav"><Link href="/descobrir">Descobrir</Link><b>Curtidas</b><Link href="/conversas">Conversas</Link><Link href="/perfil">Perfil</Link></nav></div></main>}

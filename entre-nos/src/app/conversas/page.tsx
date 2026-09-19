@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function Page(){return <main className="center"><div className="card"><h1>Conversas</h1><p>Quando houver um match, suas conversas aparecerão aqui.</p><nav className="appnav"><Link href="/descobrir">Descobrir</Link><Link href="/curtidas">Curtidas</Link><b>Conversas</b><Link href="/perfil">Perfil</Link></nav></div></main>}
