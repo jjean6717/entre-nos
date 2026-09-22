@@ -33,7 +33,7 @@ export async function POST() {
 
     const admin = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: payment, error: paymentError } = await admin.from('pix_payments')
-      .select('id,user_id,subscription_id,amount_cents,status,provider,provider_order_id,created_at')
+      .select('id,user_id,amount_cents,status,provider,provider_order_id')
       .eq('user_id', user.id)
       .eq('provider', 'mercado_pago')
       .in('status', ['pending', 'paid'])
@@ -69,11 +69,11 @@ export async function POST() {
       return NextResponse.json({ paid: false, message: 'Pagamento ainda não confirmado pelo Mercado Pago.' })
     }
 
-    const providerPaymentId = order?.transactions?.payments?.[0]?.id ? String(order.transactions.payments[0].id) : null
-    const { error: rpcError } = await admin.rpc('activate_pix_premium', {
+    const providerPaymentId = order?.transactions?.payments?.[0]?.id ? String(order.transactions.payments[0].id) : ''
+    const { error: rpcError } = await admin.rpc('confirm_mercado_pago_pix', {
       target_payment: payment.id,
       target_order_id: String(order.id),
-      target_provider_payment_id: providerPaymentId,
+      target_payment_id: providerPaymentId,
     })
     if (rpcError) {
       console.error('Falha ao ativar Premium', rpcError)

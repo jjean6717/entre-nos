@@ -28,40 +28,39 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-signature')
     const requestId = request.headers.get('x-request-id')
     const queryDataId = request.nextUrl.searchParams.get('data.id')
-   if (!signature || !requestId || !queryDataId) {
-  console.warn('MP_WEBHOOK_DIAG missing_signature_input', {
-    hasSignature: Boolean(signature),
-    hasRequestId: Boolean(requestId),
-    hasQueryDataId: Boolean(queryDataId),
-  })
-  return NextResponse.json({ error: 'Assinatura ausente.' }, { status: 401 })
-}
+    if (!signature || !requestId || !queryDataId) {
+      console.warn('MP_WEBHOOK_DIAG missing_signature_input', {
+        hasSignature: Boolean(signature),
+        hasRequestId: Boolean(requestId),
+        hasQueryDataId: Boolean(queryDataId),
+      })
+      return NextResponse.json({ error: 'Assinatura ausente.' }, { status: 401 })
+    }
+
     let ts = '', v1 = ''
     for (const part of signature.split(',')) {
-      const [key, ...rest] = part.split('='); const value = rest.join('=').trim()
+      const [key, ...rest] = part.split('=')
+      const value = rest.join('=').trim()
       if (key?.trim() === 'ts') ts = value
       if (key?.trim() === 'v1') v1 = value
     }
     if (!ts || !v1) {
-  console.warn('MP_WEBHOOK_DIAG malformed_signature', {
-    hasTs: Boolean(ts),
-    hasV1: Boolean(v1),
-  })
-  return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
-}
+      console.warn('MP_WEBHOOK_DIAG malformed_signature', { hasTs: Boolean(ts), hasV1: Boolean(v1) })
+      return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+    }
 
     const dataId = queryDataId.toLowerCase()
     const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`
     const expected = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex')
     if (!safeHexEqual(expected, v1)) {
-  console.warn('MP_WEBHOOK_DIAG hmac_mismatch', {
-    dataIdLength: dataId.length,
-    requestIdLength: requestId.length,
-    tsLength: ts.length,
-    v1Length: v1.length,
-  })
-  return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
-}
+      console.warn('MP_WEBHOOK_DIAG hmac_mismatch', {
+        dataIdLength: dataId.length,
+        requestIdLength: requestId.length,
+        tsLength: ts.length,
+        v1Length: v1.length,
+      })
+      return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+    }
 
     const orderResponse = await fetch(`https://api.mercadopago.com/v1/orders/${encodeURIComponent(queryDataId)}`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }, cache: 'no-store',
@@ -83,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     const admin = createClient(supabaseUrl, supabaseSecret, { auth: { persistSession: false, autoRefreshToken: false } })
     const { data: paymentRow, error: paymentError } = await admin.from('pix_payments')
-      .select('id,user_id,subscription_id,amount_cents,status,provider,provider_order_id')
+      .select('id,user_id,amount_cents,status,provider,provider_order_id')
       .eq('id', paymentId).eq('provider', 'mercado_pago').maybeSingle()
     if (paymentError || !paymentRow) {
       console.error('PIX local não encontrado', paymentError)
@@ -100,11 +99,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, verified: true, processed: false }, { status: 200 })
     }
 
-    const providerPaymentId = order?.transactions?.payments?.[0]?.id ? String(order.transactions.payments[0].id) : null
-    const { error: rpcError } = await admin.rpc('activate_pix_premium', {
+    const providerPaymentId = order?.transactions?.payments?.[0]?.id ? String(order.transactions.payments[0].id) : ''
+    const { error: rpcError } = await admin.rpc('confirm_mercado_pago_pix', {
       target_payment: paymentId,
       target_order_id: String(order.id),
-      target_provider_payment_id: providerPaymentId,
+      target_payment_id: providerPaymentId,
     })
     if (rpcError) {
       console.error('Falha ao ativar Premium', rpcError)
