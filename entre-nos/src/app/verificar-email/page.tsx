@@ -1,0 +1,10 @@
+'use client'
+import {FormEvent,useState} from 'react'
+import {useRouter} from 'next/navigation'
+import {createClient} from '../../lib/supabase'
+export default function Page(){
+ const router=useRouter();const[email,setEmail]=useState('');const[code,setCode]=useState('');const[msg,setMsg]=useState('');const[loading,setLoading]=useState(false)
+ async function submit(e:FormEvent){e.preventDefault();setLoading(true);setMsg('');try{const s=createClient();const{error}=await s.auth.verifyOtp({email:email.trim(),token:code,type:'signup'});if(error)throw error;setMsg('E-mail verificado ✓');setTimeout(()=>router.push('/descobrir'),700)}catch{setMsg('Código inválido ou expirado. Confira o e-mail e tente novamente.')}finally{setLoading(false)}}
+ async function resend(){if(!email)return setMsg('Informe primeiro o e-mail usado no cadastro.');const s=createClient();const{error}=await s.auth.resend({type:'signup',email:email.trim()});setMsg(error?'Não foi possível reenviar agora.':'Novo código enviado.')}
+ return <main className="center"><div className="panel"><div className="brand">ENTRE <b>NÓS</b></div><p className="tag">VERIFICAÇÃO</p><h1>Confirme seu e-mail</h1><p>Digite o e-mail usado no cadastro e o código de 6 dígitos recebido.</p><form onSubmit={submit}><label>E-mail<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="voce@email.com"/></label><label>Código<input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" required minLength={6} maxLength={6} placeholder="000000" style={{fontSize:24,letterSpacing:8,textAlign:'center'}}/></label>{msg&&<div className="notice">{msg}</div>}<button className="btn primary" disabled={loading||code.length!==6}>{loading?'Verificando...':'Verificar e-mail'}</button></form><button className="btn" onClick={resend} disabled={loading} style={{marginTop:12}}>Reenviar código</button></div></main>
+}
