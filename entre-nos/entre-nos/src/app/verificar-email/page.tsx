@@ -1,0 +1,13 @@
+'use client'
+import Link from 'next/link'
+import { FormEvent,useEffect,useState } from 'react'
+import { useRouter,useSearchParams } from 'next/navigation'
+import { createClient } from '../../lib/supabase'
+export default function Page(){
+ const router=useRouter(),params=useSearchParams(),[email,setEmail]=useState(''),[code,setCode]=useState(''),[msg,setMsg]=useState('Enviamos um código de 6 dígitos para seu e-mail.'),[loading,setLoading]=useState(false),[seconds,setSeconds]=useState(60)
+ useEffect(()=>{setEmail(params.get('email')||sessionStorage.getItem('entre-nos-verification-email')||'')},[params])
+ useEffect(()=>{if(seconds<=0)return;const t=setTimeout(()=>setSeconds(s=>s-1),1000);return()=>clearTimeout(t)},[seconds])
+ async function confirmar(e:FormEvent){e.preventDefault();if(!email||code.length!==6){setMsg('Digite o código de 6 dígitos recebido no e-mail.');return}setLoading(true);setMsg('');try{const s=createClient();const {error}=await s.auth.verifyOtp({email,token:code,type:'signup'});if(error)throw error;sessionStorage.removeItem('entre-nos-verification-email');setMsg('E-mail verificado ✓');setTimeout(()=>router.push('/descobrir'),700)}catch{setMsg('Código inválido ou expirado. Confira o e-mail e tente novamente.')}finally{setLoading(false)}}
+ async function reenviar(){if(seconds>0||!email)return;setLoading(true);try{const s=createClient();const {error}=await s.auth.resend({type:'signup',email});if(error)throw error;setSeconds(60);setMsg('Novo código enviado. Confira também a caixa de spam.')}catch{setMsg('Não foi possível reenviar agora. Aguarde e tente novamente.')}finally{setLoading(false)}}
+ return <main className="center"><div className="panel"><div className="brand">ENTRE <b>NÓS</b></div><p className="tag">VERIFICAÇÃO</p><h1>Confirme seu e-mail</h1><p>Digite o código de 6 dígitos enviado para <b>{email||'seu e-mail'}</b>.</p><form onSubmit={confirmar}><label>Código de verificação<input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" required minLength={6} maxLength={6} style={{fontSize:24,letterSpacing:8,textAlign:'center'}}/></label>{msg&&<div className="notice">{msg}</div>}<button className="btn primary" disabled={loading||code.length!==6}>{loading?'Verificando...':'Verificar e-mail'}</button></form><button className="btn" onClick={reenviar} disabled={loading||seconds>0} style={{marginTop:12}}>{seconds>0?`Reenviar código em ${seconds}s`:'Reenviar código'}</button><p style={{marginTop:18}}><Link href="/cadastro">Corrigir e-mail</Link></p></div></main>
+}
