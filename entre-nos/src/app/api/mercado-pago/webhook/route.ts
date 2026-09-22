@@ -28,20 +28,40 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-signature')
     const requestId = request.headers.get('x-request-id')
     const queryDataId = request.nextUrl.searchParams.get('data.id')
-    if (!signature || !requestId || !queryDataId) return NextResponse.json({ error: 'Assinatura ausente.' }, { status: 401 })
-
+   if (!signature || !requestId || !queryDataId) {
+  console.warn('MP_WEBHOOK_DIAG missing_signature_input', {
+    hasSignature: Boolean(signature),
+    hasRequestId: Boolean(requestId),
+    hasQueryDataId: Boolean(queryDataId),
+  })
+  return NextResponse.json({ error: 'Assinatura ausente.' }, { status: 401 })
+}
     let ts = '', v1 = ''
     for (const part of signature.split(',')) {
       const [key, ...rest] = part.split('='); const value = rest.join('=').trim()
       if (key?.trim() === 'ts') ts = value
       if (key?.trim() === 'v1') v1 = value
     }
-    if (!ts || !v1) return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+    if (!ts || !v1) {
+  console.warn('MP_WEBHOOK_DIAG malformed_signature', {
+    hasTs: Boolean(ts),
+    hasV1: Boolean(v1),
+  })
+  return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+}
 
     const dataId = queryDataId.toLowerCase()
     const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`
     const expected = crypto.createHmac('sha256', webhookSecret).update(manifest).digest('hex')
-    if (!safeHexEqual(expected, v1)) return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+    if (!safeHexEqual(expected, v1)) {
+  console.warn('MP_WEBHOOK_DIAG hmac_mismatch', {
+    dataIdLength: dataId.length,
+    requestIdLength: requestId.length,
+    tsLength: ts.length,
+    v1Length: v1.length,
+  })
+  return NextResponse.json({ error: 'Assinatura inválida.' }, { status: 401 })
+}
 
     const orderResponse = await fetch(`https://api.mercadopago.com/v1/orders/${encodeURIComponent(queryDataId)}`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }, cache: 'no-store',
